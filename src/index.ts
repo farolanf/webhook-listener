@@ -22,6 +22,11 @@ if (!fs.existsSync(options.config)) {
 
 let config = loadConfig(options.config)
 
+if (!config.secret) {
+  console.log('Missing secret')
+  exit(1)
+}
+
 const app = new Hono()
 
 app.post('/', async c => {
