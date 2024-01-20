@@ -7,15 +7,15 @@ import { run } from './runner'
 import { exit } from 'node:process'
 
 program
-  .option('-c, --config', 'path to config file', './webhook-listener.yml')
-  .option('-p, --port', 'port to listen on', '8385')
+  .option('-c, --config <path>', 'path to config file', './webhook-listener.yml')
+  .option('-p, --port <number>', 'port to listen on', '8385')
 
 program.parse()
 
 const options = program.opts()
 
 if (!fs.existsSync(options.config)) {
-  console.log('Missing config file', options.config)
+  console.log('Missing config file:', options.config)
   exit(1)
 }
 
