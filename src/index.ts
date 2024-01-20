@@ -5,6 +5,7 @@ import { serve } from '@hono/node-server'
 import { loadConfig } from './config'
 import { run } from './runner'
 import { exit } from 'node:process'
+import { validateSignature } from './secret'
 
 program
   .option('-c, --config <path>', 'path to config file', './webhook-listener.yml')
@@ -24,13 +25,20 @@ let config = loadConfig(options.config)
 const app = new Hono()
 
 app.post('/', async c => {
-  const json = await c.req.json()
+  const event = c.req.header('x-github-event')
+  if (!event) return c.body(null, 400)
+
+  const body = await c.req.json()
+
+  if (!validateSignature(c.req.header('x-hub-signature-256') || '', config.secret, body)) {
+    c.body(null, 401)
+  }
 
   if (config.reload_config) {
     config = loadConfig(options.config)
   }
 
-  void run(json, config)
+  void run(event, body, config)
 
   return c.body(null, 200)
 })
