@@ -1,23 +1,43 @@
+import fs from 'node:fs'
+import { program } from 'commander'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { loadConfig } from './config'
 import { run } from './runner'
+import { exit } from 'node:process'
+
+program
+  .option('-c, --config', 'path to config file', './webhook-listener.yml')
+  .option('-p, --port', 'port to listen on', '8385')
+
+program.parse()
+
+const options = program.opts()
+
+if (!fs.existsSync(options.config)) {
+  console.log('Missing config file', options.config)
+  exit(1)
+}
+
+let config = loadConfig(options.config)
 
 const app = new Hono()
 
 app.post('/', async c => {
   const json = await c.req.json()
 
-  const config = loadConfig(process.env.CONFIG || './webhook-listener.yml')
+  if (config.reload_config) {
+    config = loadConfig(options.config)
+  }
 
-  run(json, config)
+  void run(json, config)
 
   return c.body(null, 200)
 })
 
-const PORT = parseInt(process.env.PORT || '8385')
-
 serve({
   fetch: app.fetch,
-  port: PORT
+  port: options.port,
+}, info => {
+  console.log(`Listening on ${info.address}:${info.port}`)
 })
