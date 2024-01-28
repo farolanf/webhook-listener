@@ -8,7 +8,7 @@ Example
 secret: my-webhook-secret
 reload_config: false
 projects:
-  - repo: farolanf/myrepo
+  - repo: farolanf/somerepo
     events:
       - push
     dir: /app
@@ -19,7 +19,7 @@ projects:
 - `projects`
   - `repo` full repository name in the form of `<username>/<repo_name>`
   - `events` allowed events. Defaults to `["push"]`
-  - `dir` working dir for the command. Defaults to `null`
+  - `dir` working dir for the command (optional)
   - `command` command to run on webhook event
 
 ## Command Line Arguments
