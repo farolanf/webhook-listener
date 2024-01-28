@@ -1,5 +1,5 @@
+secret: mysecret
 projects:
-  - repo: farolanf/myrepo
-    secret: my-weebhook-secret
+  - repo: farolanf/somerepo
     dir: /app
     command: ./restart
