@@ -5,7 +5,6 @@ import { serve } from '@hono/node-server'
 import { loadConfig } from './config'
 import { run } from './runner'
 import { exit } from 'node:process'
-import { validateSignature } from './secret'
 
 program
   .option('-c, --config <path>', 'path to config file', './webhook-listener.yml')
@@ -22,28 +21,21 @@ if (!fs.existsSync(options.config)) {
 
 let config = loadConfig(options.config)
 
-if (!config.secret) {
-  console.log('Missing secret')
-  exit(1)
-}
-
 const app = new Hono()
 
 app.post('/', async c => {
   const event = c.req.header('x-github-event')
   if (!event) return c.body(null, 400)
 
-  const body = await c.req.json()
-
-  if (!validateSignature(c.req.header('x-hub-signature-256') || '', config.secret, body)) {
-    c.body(null, 401)
-  }
-
   if (config.reload_config) {
     config = loadConfig(options.config)
   }
 
-  void run(event, body, config)
+  const body = await c.req.json()
+
+  const signature = c.req.header('x-hub-signature-256') || ''
+
+  void run(event, body, config, signature)
 
   return c.body(null, 200)
 })

@@ -1,11 +1,13 @@
 import child_process from "node:child_process"
+import { validateSignature } from "./secret"
 
-export async function run(event: string, payload: any, config: WebhookListenerConfig) {
+export async function run(event: string, payload: any, config: WebhookListenerConfig, signature: string) {
   const promises = config.projects.map(project => {
     return new Promise<void>((resolve, reject) => {
       if (
         project.repo !== payload.repository.full_name ||
-        !project.events.includes(event)
+        !project.events.includes(event) ||
+        !validateSignature(signature, project.secret, payload)
       ) return resolve()
 
       try {

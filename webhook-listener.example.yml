@@ -1,5 +1,5 @@
-secret: mysecret
 projects:
   - repo: farolanf/somerepo
+    secret: mysecret
     dir: /app
     command: ./restart

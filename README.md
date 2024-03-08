@@ -5,19 +5,19 @@
 Example
 
 ```yaml
-secret: my-webhook-secret
 reload_config: false
 projects:
   - repo: farolanf/somerepo
+    secret: my-webhook-secret
     events:
       - push
     dir: /app
     command: ./restart
 ```
-- `secret` the configured webhook secret
 - `reload_config`: reload config on every webhook event
 - `projects`
   - `repo` full repository name in the form of `<username>/<repo_name>`
+  - `secret` the repo webhook secret
   - `events` allowed events. Defaults to `["push"]`
   - `dir` working dir for the command (optional)
   - `command` command to run on webhook event
