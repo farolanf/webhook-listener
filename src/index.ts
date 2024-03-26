@@ -31,7 +31,13 @@ app.post('/', async c => {
     config = loadConfig(options.config)
   }
 
-  const body = await c.req.json()
+  let body
+  try {
+    body = await c.req.json()
+  } catch (err) {
+    console.log(err)
+    return c.body(null, 400)
+  }
 
   const signature = c.req.header('x-hub-signature-256') || ''
 
