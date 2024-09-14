@@ -7,8 +7,9 @@ const isEventAllowed = (event: string, allowedEvents: WebhookEvent[], payload: a
       return event === allowedEvent
     } else if (typeof allowedEvent === 'object') {
       for (const key in allowedEvent) {
-        if (key === 'event' && event !== allowedEvent[key]) return false
-        if (payload[event][key] !== (allowedEvent as any)[key]) return false
+        if (key === 'event') {
+          if (event !== allowedEvent[key]) return false
+        } else if (payload[event][key] !== (allowedEvent as any)[key]) return false
       }
       return true
     } else {
