@@ -11,6 +11,8 @@ projects:
     secret: my-webhook-secret
     events:
       - push
+      - event: workflow_run
+        status: completed
     dir: /app
     command: ./restart
 ```

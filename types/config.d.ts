@@ -3,10 +3,12 @@ type WebhookListenerConfig = {
   projects: Project[]
 }
 
+type WebhookEvent = string | Record<string, string>
+
 type Project = {
   repo: string
   secret: string
-  events: string[]
+  events: WebhookEvent[]
   dir?: string
   command: string
 }
