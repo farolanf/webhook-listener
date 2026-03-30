@@ -15,7 +15,7 @@ program.parse()
 const options = program.opts()
 
 if (!fs.existsSync(options.config)) {
-  console.log('Missing config file:', options.config)
+  console.log(`[${new Date().toISOString()}] Missing config file: ${options.config}`)
   exit(1)
 }
 
@@ -35,7 +35,7 @@ app.post('/', async c => {
   try {
     body = await c.req.json()
   } catch (err) {
-    console.log(err)
+    console.log(`[${new Date().toISOString()}] ${err}`)
     return c.body(null, 400)
   }
 
@@ -50,5 +50,5 @@ serve({
   fetch: app.fetch,
   port: options.port,
 }, info => {
-  console.log(`Listening on ${info.address}:${info.port}`)
+  console.log(`[${new Date().toISOString()}] Listening on ${info.address}:${info.port}`)
 })

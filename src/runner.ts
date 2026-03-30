@@ -37,7 +37,7 @@ export async function run(event: string, payload: any, config: WebhookListenerCo
       !validateSignature(signature, project.secret, payload)
     ) continue
 
-    console.log(`${project.repo} (${event}) ${project.dir} ${project.command}`)
+    console.log(`[${new Date().toISOString()}] ${project.repo} (${event}) ${project.dir} ${project.command}`)
 
     await new Promise<void>((resolve, reject) => {
       currentProcess = child_process.exec(project.command, { cwd: project.dir })
