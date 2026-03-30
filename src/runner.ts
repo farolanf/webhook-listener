@@ -1,6 +1,15 @@
 import child_process from "node:child_process"
 import { validateSignature } from "./secret"
 
+let currentProcess: child_process.ChildProcess | null = null
+
+export function cancelCurrentBuild() {
+  if (currentProcess) {
+    currentProcess.kill('SIGTERM')
+    currentProcess = null
+  }
+}
+
 const isEventAllowed = (event: string, allowedEvents: WebhookEvent[], payload: any) => {
   return allowedEvents.some(allowedEvent => {
     if (typeof allowedEvent === 'string') {
@@ -19,25 +28,27 @@ const isEventAllowed = (event: string, allowedEvents: WebhookEvent[], payload: a
 }
 
 export async function run(event: string, payload: any, config: WebhookListenerConfig, signature: string) {
-  const promises = config.projects.map(project => {
-    return new Promise<void>((resolve, reject) => {
-      if (
-        project.repo !== payload.repository.full_name ||
-        !isEventAllowed(event, project.events, payload) ||
-        !validateSignature(signature, project.secret, payload)
-      ) return resolve()
+  cancelCurrentBuild()
 
-      try {
-        console.log(`${project.repo} (${event}) ${project.dir} ${project.command}`)
-        child_process.execSync(project.command, {
-          cwd: project.dir,
-        })
-        resolve()
-      } catch(e) {
-        reject(e)
-      }
+  for (const project of config.projects) {
+    if (
+      project.repo !== payload.repository.full_name ||
+      !isEventAllowed(event, project.events, payload) ||
+      !validateSignature(signature, project.secret, payload)
+    ) continue
+
+    console.log(`${project.repo} (${event}) ${project.dir} ${project.command}`)
+
+    await new Promise<void>((resolve, reject) => {
+      currentProcess = child_process.exec(project.command, { cwd: project.dir })
+      currentProcess.on('exit', (code) => {
+        currentProcess = null
+        code === 0 ? resolve() : reject(new Error(`Command failed with code ${code}`))
+      })
+      currentProcess.on('error', (err) => {
+        currentProcess = null
+        reject(err)
+      })
     })
-  })
-
-  return Promise.all(promises)
+  }
 }
