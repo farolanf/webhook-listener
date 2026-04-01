@@ -10,6 +10,15 @@ export function cancelCurrentBuild() {
   }
 }
 
+const matchHeadBranch = (payloadBranch: string | undefined, configBranch: string): boolean => {
+  if (!payloadBranch) return false
+  if (configBranch.endsWith('*')) {
+    const prefix = configBranch.slice(0, -1)
+    return payloadBranch.startsWith(prefix)
+  }
+  return payloadBranch === configBranch
+}
+
 const isEventAllowed = (event: string, allowedEvents: WebhookEvent[], payload: any) => {
   return allowedEvents.some(allowedEvent => {
     if (typeof allowedEvent === 'string') {
@@ -18,6 +27,8 @@ const isEventAllowed = (event: string, allowedEvents: WebhookEvent[], payload: a
       for (const key in allowedEvent) {
         if (key === 'event') {
           if (event !== allowedEvent[key]) return false
+        } else if (key === 'head_branch') {
+          if (!matchHeadBranch(payload[event][key], (allowedEvent as any)[key])) return false
         } else if (payload[event][key] !== (allowedEvent as any)[key]) return false
       }
       return true

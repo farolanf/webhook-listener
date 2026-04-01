@@ -147,5 +147,137 @@ describe('runner', () => {
 
       expect(callOrder).toEqual(['exec-echo test'])
     })
+
+    it('should match head_branch exact', async () => {
+      const callOrder: string[] = []
+
+      mockExec.mockImplementation((cmd: string) => {
+        callOrder.push(`exec-${cmd}`)
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') cb(0)
+            return proc
+          }
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValue(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{
+          repo: 'test/repo',
+          dir: '/tmp',
+          command: 'echo test',
+          events: [{ event: 'workflow_run', head_branch: 'main' }],
+          secret: 'secret'
+        }]
+      } as any
+
+      await run('workflow_run', { repository: { full_name: 'test/repo' }, workflow_run: { head_branch: 'main' } }, fakeConfig, '')
+
+      expect(callOrder).toEqual(['exec-echo test'])
+    })
+
+    it('should match head_branch with prefix wildcard', async () => {
+      const callOrder: string[] = []
+
+      mockExec.mockImplementation((cmd: string) => {
+        callOrder.push(`exec-${cmd}`)
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') cb(0)
+            return proc
+          }
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValue(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{
+          repo: 'test/repo',
+          dir: '/tmp',
+          command: 'echo test',
+          events: [{ event: 'workflow_run', head_branch: 'staging/*' }],
+          secret: 'secret'
+        }]
+      } as any
+
+      await run('workflow_run', { repository: { full_name: 'test/repo' }, workflow_run: { head_branch: 'staging/feature-1' } }, fakeConfig, '')
+
+      expect(callOrder).toEqual(['exec-echo test'])
+    })
+
+    it('should skip project when head_branch does not match', async () => {
+      const callOrder: string[] = []
+
+      mockExec.mockImplementation((cmd: string) => {
+        callOrder.push(`exec-${cmd}`)
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') cb(0)
+            return proc
+          }
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValue(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{
+          repo: 'test/repo',
+          dir: '/tmp',
+          command: 'echo test',
+          events: [{ event: 'workflow_run', head_branch: 'main' }],
+          secret: 'secret'
+        }]
+      } as any
+
+      await run('workflow_run', { repository: { full_name: 'test/repo' }, workflow_run: { head_branch: 'feature-1' } }, fakeConfig, '')
+
+      expect(callOrder).toEqual([])
+    })
+
+    it('should skip project when head_branch prefix does not match', async () => {
+      const callOrder: string[] = []
+
+      mockExec.mockImplementation((cmd: string) => {
+        callOrder.push(`exec-${cmd}`)
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') cb(0)
+            return proc
+          }
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValue(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{
+          repo: 'test/repo',
+          dir: '/tmp',
+          command: 'echo test',
+          events: [{ event: 'workflow_run', head_branch: 'staging/*' }],
+          secret: 'secret'
+        }]
+      } as any
+
+      await run('workflow_run', { repository: { full_name: 'test/repo' }, workflow_run: { head_branch: 'main/feature-1' } }, fakeConfig, '')
+
+      expect(callOrder).toEqual([])
+    })
   })
 })
