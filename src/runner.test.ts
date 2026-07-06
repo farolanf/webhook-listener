@@ -247,6 +247,118 @@ describe('runner', () => {
       expect(callOrder).toEqual([])
     })
 
+    it('should retry a failing command and succeed within the retry budget', async () => {
+      let attempts = 0
+
+      mockExec.mockImplementation(() => {
+        const attempt = ++attempts
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') setTimeout(() => cb(attempt < 3 ? 1 : 0), 0)
+            return proc
+          }
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValue(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{
+          repo: 'test/repo', dir: '/tmp', command: 'flaky', events: ['push'], secret: 'secret',
+          retries: 3, retry_delay: 0
+        }]
+      } as any
+
+      await run('push', { repository: { full_name: 'test/repo' } }, fakeConfig, '')
+
+      expect(attempts).toBe(3)
+    })
+
+    it('should reject after exhausting retries', async () => {
+      mockExec.mockImplementation(() => {
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') setTimeout(() => cb(1), 0)
+            return proc
+          }
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValue(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{
+          repo: 'test/repo', dir: '/tmp', command: 'always-fails', events: ['push'], secret: 'secret',
+          retries: 2, retry_delay: 0
+        }]
+      } as any
+
+      await expect(run('push', { repository: { full_name: 'test/repo' } }, fakeConfig, '')).rejects.toThrow()
+      expect(mockExec).toHaveBeenCalledTimes(3)
+    })
+
+    it('reconcile runs every project command once on boot', async () => {
+      const cmds: string[] = []
+
+      mockExec.mockImplementation((cmd: string) => {
+        cmds.push(cmd)
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') setTimeout(() => cb(0), 0)
+            return proc
+          }
+        } as any
+        return proc
+      })
+
+      const { reconcile } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [
+          { repo: 'a/a', dir: '/tmp', command: 'deploy-a', events: ['push'], secret: 's' },
+          { repo: 'b/b', dir: '/tmp', command: 'deploy-b', events: ['push'], secret: 's' }
+        ]
+      } as any
+
+      await reconcile(fakeConfig)
+
+      expect(cmds).toEqual(['deploy-a', 'deploy-b'])
+    })
+
+    it('reconcile continues past a failing project', async () => {
+      const cmds: string[] = []
+
+      mockExec.mockImplementation((cmd: string) => {
+        cmds.push(cmd)
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') setTimeout(() => cb(cmd === 'deploy-a' ? 1 : 0), 0)
+            return proc
+          }
+        } as any
+        return proc
+      })
+
+      const { reconcile } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [
+          { repo: 'a/a', dir: '/tmp', command: 'deploy-a', events: ['push'], secret: 's' },
+          { repo: 'b/b', dir: '/tmp', command: 'deploy-b', events: ['push'], secret: 's' }
+        ]
+      } as any
+
+      await reconcile(fakeConfig)
+
+      expect(cmds).toEqual(['deploy-a', 'deploy-b'])
+    })
+
     it('should skip project when head_branch prefix does not match', async () => {
       const callOrder: string[] = []
 

@@ -3,7 +3,7 @@ import { program } from 'commander'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { loadConfig } from './config'
-import { run } from './runner'
+import { run, reconcile } from './runner'
 import { exit } from 'node:process'
 
 program
@@ -63,4 +63,11 @@ serve({
   port: options.port,
 }, info => {
   console.log(`[${new Date().toISOString()}] Listening on ${info.address}:${info.port}`)
+
+  // Reconcile-on-boot: replay each project's (idempotent) deploy command so a deploy
+  // interrupted by a restart/reboot converges instead of waiting for the next webhook.
+  // A webhook arriving mid-reconcile supersedes it, so the two never run in parallel.
+  reconcile(config).catch(err => {
+    console.error(`[${new Date().toISOString()}] Reconcile failed:`, err)
+  })
 })

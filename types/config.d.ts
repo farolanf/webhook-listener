@@ -11,4 +11,6 @@ type Project = {
   events: WebhookEvent[]
   dir?: string
   command: string
+  retries?: number
+  retry_delay?: number
 }
