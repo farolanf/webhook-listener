@@ -52,6 +52,9 @@ export async function run(event: string, payload: any, config: WebhookListenerCo
 
     await new Promise<void>((resolve, reject) => {
       currentProcess = child_process.exec(project.command, { cwd: project.dir })
+      // Forward the command's output to our logs so a failed deploy is diagnosable.
+      currentProcess.stdout?.pipe(process.stdout)
+      currentProcess.stderr?.pipe(process.stderr)
       currentProcess.on('exit', (code) => {
         currentProcess = null
         code === 0 ? resolve() : reject(new Error(`Command failed with code ${code}`))
