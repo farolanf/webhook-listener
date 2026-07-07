@@ -1,4 +1,5 @@
 node_modules
 
+.omc
 .env
 webhook-listener.yml
