@@ -391,5 +391,161 @@ describe('runner', () => {
 
       expect(callOrder).toEqual([])
     })
+
+    // A hook is subscribed to a whole event type, so every workflow_run in the
+    // repo is delivered here. Cancelling before the match test lets an unrelated
+    // workflow kill a deploy mid-recreate, with nothing queued to take its place.
+    it('should leave a running build alone when the delivery matches no project', async () => {
+      const kills: string[] = []
+
+      mockExec.mockImplementation(() => {
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') setTimeout(() => cb(0), 200)
+            return proc
+          },
+          kill: (signal: string) => kills.push(signal)
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValue(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{
+          repo: 'test/repo',
+          dir: '/tmp',
+          command: 'deploy',
+          events: [{ event: 'workflow_run', name: 'backend', head_branch: 'main' }],
+          secret: 'secret'
+        }]
+      } as any
+
+      run('workflow_run', {
+        repository: { full_name: 'test/repo' },
+        workflow_run: { name: 'backend', head_branch: 'main' }
+      }, fakeConfig, '')
+      await new Promise(r => setTimeout(r, 10))
+
+      // An unrelated workflow starting on somebody's PR branch.
+      run('workflow_run', {
+        repository: { full_name: 'test/repo' },
+        workflow_run: { name: 'checks', head_branch: 'someones-pr-branch' }
+      }, fakeConfig, '')
+      await new Promise(r => setTimeout(r, 10))
+
+      expect(kills).toEqual([])
+    })
+
+    it('should leave a running build alone when the payload has no repository', async () => {
+      const kills: string[] = []
+
+      mockExec.mockImplementation(() => {
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') setTimeout(() => cb(0), 200)
+            return proc
+          },
+          kill: (signal: string) => kills.push(signal)
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValue(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{ repo: 'test/repo', dir: '/tmp', command: 'deploy', events: ['push'], secret: 'secret' }]
+      } as any
+
+      run('push', { repository: { full_name: 'test/repo' } }, fakeConfig, '')
+      await new Promise(r => setTimeout(r, 10))
+
+      await expect(run('ping', { zen: 'Keep it logically awesome.' }, fakeConfig, '')).resolves.toBeUndefined()
+
+      expect(kills).toEqual([])
+    })
+
+    it('should leave a running build alone when the signature cannot be checked', async () => {
+      const kills: string[] = []
+
+      mockExec.mockImplementation(() => {
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') setTimeout(() => cb(0), 200)
+            return proc
+          },
+          kill: (signal: string) => kills.push(signal)
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValueOnce(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{ repo: 'test/repo', dir: '/tmp', command: 'deploy', events: ['push'], secret: 'secret' }]
+      } as any
+
+      run('push', { repository: { full_name: 'test/repo' } }, fakeConfig, '')
+      await new Promise(r => setTimeout(r, 10))
+
+      // timingSafeEqual throws on a length mismatch — an absent or truncated
+      // X-Hub-Signature-256 header.
+      mockValidateSignature.mockImplementation(() => { throw new Error('Input buffers must have the same byte length') })
+
+      await expect(run('push', { repository: { full_name: 'test/repo' } }, fakeConfig, '')).resolves.toBeUndefined()
+
+      expect(kills).toEqual([])
+    })
+
+    it('should log the build it cancels and what superseded it', async () => {
+      const logs: string[] = []
+      vi.spyOn(console, 'log').mockImplementation((...args: any[]) => { logs.push(args.join(' ')) })
+
+      mockExec.mockImplementation(() => {
+        const proc = {
+          on: (event: string, cb: Function) => {
+            if (event === 'exit') setTimeout(() => cb(0), 200)
+            return proc
+          },
+          kill: () => {}
+        } as any
+        return proc
+      })
+
+      mockValidateSignature.mockReturnValue(true)
+
+      const { run } = await import('../src/runner')
+
+      const fakeConfig = {
+        projects: [{
+          repo: 'test/repo',
+          dir: '/tmp',
+          command: 'deploy',
+          events: [{ event: 'workflow_run', name: 'backend', head_branch: 'main' }],
+          secret: 'secret'
+        }]
+      } as any
+
+      const payload = {
+        repository: { full_name: 'test/repo' },
+        action: 'completed',
+        workflow_run: { name: 'backend', head_branch: 'main' }
+      }
+
+      run('workflow_run', payload, fakeConfig, '')
+      await new Promise(r => setTimeout(r, 10))
+      run('workflow_run', payload, fakeConfig, '')
+      await new Promise(r => setTimeout(r, 10))
+
+      const cancelled = logs.find(line => line.includes('cancelling in-flight build'))
+      expect(cancelled).toBeDefined()
+      expect(cancelled).toContain('superseded by test/repo workflow_run completed backend@main')
+    })
   })
 })
